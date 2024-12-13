@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from models import db, Restaurant, RestaurantPizza, Pizza
 from flask_migrate import Migrate
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, jsonify
 from flask_restful import Api, Resource
 import os
 
@@ -23,6 +23,60 @@ api = Api(app)
 @app.route("/")
 def index():
     return "<h1>Code challenge</h1>"
+
+
+@app.route("/restaurants", methods=["GET"])
+def get_restaurants():
+    restaurants = Restaurant.query.all()
+    if not restaurants:
+        return jsonify({"message": "No restaurants found"}), 404
+    return jsonify({"restaurants": [restaurant.to_dict() for restaurant in restaurants]}), 200
+
+
+@app.route("/restaurants/<int:id>", methods=["GET"])
+def get_restaurant(id):
+    restaurant = Restaurant.query.get(id)
+    if not restaurant:
+        return jsonify({"message": "Restaurant not found"}), 404
+    return jsonify(restaurant.to_dict()), 200
+
+
+@app.route("/restaurants/<int:id>", methods=["DELETE"])
+def delete_restaurant(id):
+    restaurant = Restaurant.query.get(id)
+    if not restaurant:
+        return jsonify({"message": "Restaurant not found"}), 404
+
+    db.session.delete(restaurant)
+    db.session.commit()
+    return "", 204
+
+
+@app.route("/pizzas", methods=["GET"])
+def get_pizzas():
+    pizzas = Pizza.query.all()
+    if not pizzas:
+        return jsonify({"message": "No pizzas found"}), 404
+    return jsonify({"pizzas": [pizza.to_dict() for pizza in pizzas]}), 200
+
+
+@app.route("/restaurant_pizzas", methods=["POST"])
+def create_restaurant_pizza():
+    data = request.get_json()
+    restaurant_id = data.get('restaurant_id')
+    pizza_id = data.get('pizza_id')
+    price = data.get('price')
+
+    if not all([restaurant_id, pizza_id, price]):
+        return jsonify({"errors": "Missing required fields"}), 400
+
+    try:
+        restaurant_pizza = RestaurantPizza(restaurant_id=restaurant_id, pizza_id=pizza_id, price=price)
+        db.session.add(restaurant_pizza)
+        db.session.commit()
+        return jsonify(restaurant_pizza.to_dict()), 201
+    except Exception as e:
+        return jsonify({"errors": str(e)}), 500
 
 
 if __name__ == "__main__":
